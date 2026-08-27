@@ -1,7 +1,7 @@
-/**
+﻿/**
  * JKAnime Scraper for Nuvio
  * Source: storm-ext JKAnimeProvider
- * Content: Anime Series, Movies, OVAs (Subtitulado en Español)
+ * Content: Anime Series, Movies, OVAs (Subtitulado en EspaÃ±ol)
  */
 
 const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
@@ -161,19 +161,18 @@ async function getStreams(tmdbId, mediaType = 'tv', season = 1, episode = 1) {
         const stream = await resolveHostUrl(srvUrl, epUrl);
         if (stream && stream.url) {
           streams.push({
-            name: `JKAnime | Sub Español (${stream.quality})`,
-            title: `🎌 ${title} - Episodio ${epNum} (${year || 'N/A'})\n🌐 Subtitulado en Español | ⚡ JKAnime Server | 🎞️ ${stream.type.toUpperCase()}`,
+            name: `JKAnime | Sub EspaÃ±ol (${stream.quality})`,
+            title: `ðŸŽŒ ${title} - Episodio ${epNum} (${year || 'N/A'})\nðŸŒ Subtitulado en EspaÃ±ol | âš¡ JKAnime Server | ðŸŽžï¸ ${stream.type.toUpperCase()}`,
             url: stream.url,
             quality: stream.quality || '1080p',
             type: stream.type || 'm3u8',
-            headers: stream.headers || { 'Referer': BASE_URL + '/' },
-            provider: 'jkanime'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
           });
         }
       } catch (e) {}
     });
 
-    await Promise.allSettled(tasks);
+    await Promise.all((tasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[JKAnime Error]:', error);
   }
