@@ -1,7 +1,7 @@
-/**
+﻿/**
  * PelisPlusHD Scraper for Nuvio
  * Source: storm-ext PelisplusHDProvider
- * Content: Películas y Series en Español Latino / Castellano
+ * Content: PelÃ­culas y Series en EspaÃ±ol Latino / Castellano
  */
 
 const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
@@ -175,18 +175,17 @@ async function getStreams(tmdbId, mediaType = 'movie', season = null, episode = 
           const epTag = isTv && season && episode ? ` S${season}E${episode}` : '';
           streams.push({
             name: `PelisPlusHD | Latino (${stream.quality})`,
-            title: `🎬 ${title}${epTag} (${year || 'N/A'})\n🌐 Audio: Latino | 🎞️ ${stream.type.toUpperCase()} | 📌 Servidor Rápido`,
+            title: `ðŸŽ¬ ${title}${epTag} (${year || 'N/A'})\nðŸŒ Audio: Latino | ðŸŽžï¸ ${stream.type.toUpperCase()} | ðŸ“Œ Servidor RÃ¡pido`,
             url: stream.url,
             quality: stream.quality || '1080p',
             type: stream.type || 'm3u8',
-            headers: stream.headers || { 'Referer': BASE_URL + '/' },
-            provider: 'pelisplushd'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
           });
         }
       } catch (e) {}
     });
 
-    await Promise.allSettled(tasks);
+    await Promise.all((tasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[PelisPlusHD Error]:', error);
   }
