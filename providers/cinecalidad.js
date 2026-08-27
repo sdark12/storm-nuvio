@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Cinecalidad Scraper for Nuvio
  * Source: storm-ext CinecalidadProvider
- * Content: Películas en Alta Definición (4K UHD, 1080p FHD) en Español Latino
+ * Content: PelÃ­culas en Alta DefiniciÃ³n (4K UHD, 1080p FHD) en EspaÃ±ol Latino
  */
 
 const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
@@ -170,18 +170,17 @@ async function getStreams(tmdbId, mediaType = 'movie', season = null, episode = 
         if (stream && stream.url) {
           streams.push({
             name: `Cinecalidad | ${displayQuality}`,
-            title: `🎬 ${title} (${year || 'N/A'})\n💎 Calidad: ${displayQuality} | 🌐 Audio: Latino | 📌 Servidor Premium`,
+            title: `ðŸŽ¬ ${title} (${year || 'N/A'})\nðŸ’Ž Calidad: ${displayQuality} | ðŸŒ Audio: Latino | ðŸ“Œ Servidor Premium`,
             url: stream.url,
             quality: is4K ? '4K' : '1080p',
             type: stream.type || 'm3u8',
-            headers: stream.headers || { 'Referer': BASE_URL + '/' },
-            provider: 'cinecalidad'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
           });
         }
       } catch (e) {}
     });
 
-    await Promise.allSettled(tasks);
+    await Promise.all((tasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[Cinecalidad Error]:', error);
   }
