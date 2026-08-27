@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Cuevana Scraper for Nuvio
  * Source: storm-ext CuevanaProvider
- * Content: Películas y Series en Español Latino, Castellano y Subtitulado
+ * Content: PelÃ­culas y Series en EspaÃ±ol Latino, Castellano y Subtitulado
  */
 
 const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
@@ -259,19 +259,18 @@ async function getStreams(tmdbId, mediaType = 'movie', season = null, episode = 
             const epTag = isTv && season && episode ? ` S${season}E${episode}` : '';
             streams.push({
               name: `Cuevana | ${lang} (${stream.quality})`,
-              title: `🎬 ${title}${epTag} (${year || 'N/A'})\n🌐 Audio: ${lang} | 🎞️ ${stream.type.toUpperCase()} | 📌 Servidor Directo`,
+              title: `ðŸŽ¬ ${title}${epTag} (${year || 'N/A'})\nðŸŒ Audio: ${lang} | ðŸŽžï¸ ${stream.type.toUpperCase()} | ðŸ“Œ Servidor Directo`,
               url: stream.url,
               quality: stream.quality || '1080p',
               type: stream.type || 'm3u8',
-              headers: stream.headers || { 'Referer': BASE_URL + '/' },
-              provider: 'cuevana'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
             });
           }
         }
       } catch (err) {}
     });
 
-    await Promise.allSettled(resolveTasks);
+    await Promise.all((resolveTasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[Cuevana Scraper Error]:', error);
   }
