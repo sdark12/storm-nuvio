@@ -1,0 +1,92 @@
+{
+  "name": "Storm-Nuvio",
+  "version": "1.0.0",
+  "description": "Suite de proveedores de streaming en Español (Latino, Castellano, Anime y Doramas) adaptada de CloudStream 3 (storm-ext) para Nuvio.",
+  "author": "Storm-Nuvio Team",
+  "scrapers": [
+    {
+      "id": "cuevana",
+      "name": "🍿 Cuevana",
+      "description": "Películas y Series en Español Latino, Castellano y Subtitulado en HD",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/cuevana.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/mD8zG0tL/cuevana.png",
+      "contentLanguage": ["es"]
+    },
+    {
+      "id": "animeflv",
+      "name": "🎌 AnimeFLV",
+      "description": "Anime en emisión y finalizado con subtítulos y doblaje latino",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["movie", "tv", "anime"],
+      "filename": "providers/animeflv.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/JhL3HBR4/animeflv.png",
+      "contentLanguage": ["es", "ja"]
+    },
+    {
+      "id": "pelisplushd",
+      "name": "🎬 PelisPlus HD",
+      "description": "Gran catálogo de películas y series en audio latino",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["movie", "tv"],
+      "filename": "providers/pelisplushd.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/9fDVBvn5/pelisplus.png",
+      "contentLanguage": ["es"]
+    },
+    {
+      "id": "cinecalidad",
+      "name": "💎 Cinecalidad 4K",
+      "description": "Películas en calidad Ultra HD 4K y 1080p Full HD en Español Latino",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["movie"],
+      "filename": "providers/cinecalidad.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/DZpW6Xfb/cinecalidad.png",
+      "contentLanguage": ["es"]
+    },
+    {
+      "id": "jkanime",
+      "name": "⚡ JKAnime",
+      "description": "Extenso catálogo de anime en alta definición subtitulado al español",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["movie", "tv", "anime"],
+      "filename": "providers/jkanime.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/0Q3DvLx7/jkanime.png",
+      "contentLanguage": ["es", "ja"]
+    },
+    {
+      "id": "doramasflix",
+      "name": "🌸 DoramasFlix",
+      "description": "Doramas y series asiáticas (K-Dramas, C-Dramas) en español",
+      "version": "1.0.0",
+      "author": "Storm-Nuvio",
+      "supportedTypes": ["tv"],
+      "filename": "providers/doramasflix.js",
+      "enabled": true,
+      "hasSettings": false,
+      "formats": ["mp4", "m3u8"],
+      "logo": "https://i.postimg.cc/MKsp4xjy/doramasflix.png",
+      "contentLanguage": ["es", "ko", "ja"]
+    }
+  ]
+}
