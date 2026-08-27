@@ -1,7 +1,7 @@
-/**
+﻿/**
  * DoramasFlix Scraper for Nuvio
  * Source: storm-ext DoramasFlixProvider
- * Content: Doramas y Series Asiáticas (K-Dramas, C-Dramas, J-Dramas) Subtitulados y Doblados
+ * Content: Doramas y Series AsiÃ¡ticas (K-Dramas, C-Dramas, J-Dramas) Subtitulados y Doblados
  */
 
 const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
@@ -156,18 +156,17 @@ async function getStreams(tmdbId, mediaType = 'tv', season = 1, episode = 1) {
         if (stream && stream.url) {
           streams.push({
             name: `DoramasFlix | Sub/Latino (${stream.quality})`,
-            title: `🌸 ${title} - T${sNum}E${epNum} (${year || 'N/A'})\n🌐 Subtitulado / Doblado | ⚡ DoramasFlix Server | 🎞️ ${stream.type.toUpperCase()}`,
+            title: `ðŸŒ¸ ${title} - T${sNum}E${epNum} (${year || 'N/A'})\nðŸŒ Subtitulado / Doblado | âš¡ DoramasFlix Server | ðŸŽžï¸ ${stream.type.toUpperCase()}`,
             url: stream.url,
             quality: stream.quality || '1080p',
             type: stream.type || 'm3u8',
-            headers: stream.headers || { 'Referer': BASE_URL + '/' },
-            provider: 'doramasflix'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
           });
         }
       } catch (e) {}
     });
 
-    await Promise.allSettled(tasks);
+    await Promise.all((tasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[DoramasFlix Error]:', error);
   }
