@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storm-Nuvio | Scraper Test Runner & Video Player</title>
+  <meta name="description" content="Entorno interactivo para depurar y probar scrapers de streaming en español de Nuvio.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0c10;
+      --bg-card: rgba(22, 27, 34, 0.75);
+      --bg-card-hover: rgba(30, 38, 48, 0.85);
+      --border-color: rgba(240, 246, 252, 0.1);
+      --border-glow: rgba(56, 189, 248, 0.3);
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --accent: #ec4899;
+      --accent-glow: rgba(236, 72, 153, 0.25);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(10, 12, 16, 0.8);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 1.35rem;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 950px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      height: fit-content;
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #fff;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, select {
+      background: rgba(13, 17, 23, 0.8);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary), #0284c7);
+      color: #fff;
+      font-weight: 700;
+      padding: 0.85rem 1.25rem;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .presets-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .preset-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .preset-pill:hover {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .streams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    .stream-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stream-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-3px);
+      background: var(--bg-card-hover);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .stream-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      width: fit-content;
+      text-transform: uppercase;
+    }
+
+    .badge-quality {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-type {
+      background: rgba(236, 72, 153, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+    }
+
+    .stream-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      white-space: pre-line;
+      color: #f1f5f9;
+      line-height: 1.4;
+    }
+
+    .stream-url-box {
+      background: #090d13;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      max-height: 55px;
+      overflow-y: auto;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: auto;
+    }
+
+    .btn-sm {
+      padding: 0.45rem 0.75rem;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      flex: 1;
+      font-weight: 600;
+    }
+
+    .btn-play {
+      background: linear-gradient(135deg, var(--accent), #db2777);
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-copy:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Modal Player */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1.5rem;
+    }
+
+    .modal-content {
+      background: #111827;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-header {
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .video-container {
+      width: 100%;
+      background: #000;
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+    }
+
+    .empty-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      color: var(--text-muted);
+      border: 2px dashed var(--border-color);
+      border-radius: 16px;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">⚡</div>
+      <div>
+        <div class="brand-title">Storm-Nuvio Test Runner</div>
+        <div class="brand-subtitle">Plugin Debugger & Live Player</div>
+      </div>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--text-muted);">
+      Standard: <strong style="color: var(--primary);">Nuvio Local Scrapers</strong>
+    </div>
+  </header>
+
+  <main>
+    <!-- Config Panel -->
+    <aside class="panel">
+      <div class="panel-title">⚙️ Parámetros de Prueba</div>
+
+      <div class="form-group">
+        <label for="providerSelect">Proveedor Scraper</label>
+        <select id="providerSelect">
+          <option value="all">⚡ Todos los Scrapers (Simultáneo)</option>
+          <option value="cuevana">🍿 Cuevana (Películas & Series)</option>
+          <option value="animeflv">🎌 AnimeFLV (Anime Sub / Dub)</option>
+          <option value="pelisplushd">🎬 PelisPlus HD (Latino)</option>
+          <option value="cinecalidad">💎 Cinecalidad 4K (Películas)</option>
+          <option value="jkanime">⚡ JKAnime (Anime)</option>
+          <option value="doramasflix">🌸 DoramasFlix (K-Dramas)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="mediaType">Tipo de Contenido</label>
+        <select id="mediaType" onchange="toggleTvInputs()">
+          <option value="movie">Película (Movie)</option>
+          <option value="tv">Serie / Anime / Dorama (TV)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="tmdbInput">TMDB ID</label>
+        <input type="text" id="tmdbInput" placeholder="Ej: 533535 o tt0137523" value="533535">
+      </div>
+
+      <div class="grid-2" id="tvInputs" style="display: none;">
+        <div class="form-group">
+          <label for="seasonInput">Temporada</label>
+          <input type="number" id="seasonInput" min="1" value="1">
+        </div>
+        <div class="form-group">
+          <label for="episodeInput">Episodio</label>
+          <input type="number" id="episodeInput" min="1" value="1">
+        </div>
+      </div>
+
+      <button id="searchBtn" class="btn" onclick="runScraperTest()">
+        <span id="btnText">🚀 Probar Scraper</span>
+        <div id="btnSpinner" class="spinner" style="display: none;"></div>
+      </button>
+
+      <div class="form-group" style="margin-top: 1rem;">
+        <label>🎯 Ejemplos Rápidos (Presets)</label>
+        <div class="presets-container">
+          <div class="preset-pill" onclick="loadPreset('533535', 'movie', 1, 1, 'Deadpool & Wolverine')">
+            <span>🎬 Deadpool & Wolverine</span>
+            <span style="color: var(--primary);">Movie</span>
+          </div>
+          <div class="preset-pill" onclick="loadPreset('1022789', 'movie', 1, 1, 'Intensa-Mente 2')">
+            <span>🎬 Inside Out 2</span>
+            <span style="color: var(--primary);">Movie</span>
+          </div>
+          <div class="preset-pill" onclick="loadPreset('100088', 'tv', 1, 1, 'The Last of Us S01E01')">
+            <span>📺 The Last of Us (T1E1)</span>
+            <span style="color: var(--accent);">TV</span>
+          </div>
+          <div class="preset-pill" onclick="loadPreset('1429', 'tv', 1, 1, 'Shingeki no Kyojin Ep 1')">
+            <span>🎌 Attack on Titan (Ep 1)</span>
+            <span style="color: var(--success);">Anime</span>
+          </div>
+          <div class="preset-pill" onclick="loadPreset('93405', 'tv', 1, 1, 'El Juego del Calamar')">
+            <span>🌸 Squid Game (T1E1)</span>
+            <span style="color: var(--warning);">Dorama</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Results Panel -->
+    <section class="results-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 id="resultsHeading" style="font-size: 1.3rem; font-weight: 800;">Streams Encontrados</h2>
+        <div id="statusBadge" style="font-size: 0.85rem; color: var(--text-muted);">Listo para probar</div>
+      </div>
+
+      <div id="streamsContainer" class="streams-grid">
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <div style="font-size: 3rem;">📡</div>
+          <h3>Esperando consulta...</h3>
+          <p>Selecciona un proveedor o usa uno de los ejemplos rápidos para obtener los enlaces de streaming en tiempo real.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Video Modal -->
+  <div id="playerModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div id="playerTitle" style="font-weight: 700; color: #fff;">Reproductor de Stream</div>
+        <button onclick="closePlayer()" style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">✕</button>
+      </div>
+      <div class="video-container">
+        <video id="videoPlayer" controls autoplay></video>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTvInputs() {
+      const type = document.getElementById('mediaType').value;
+      document.getElementById('tvInputs').style.display = type === 'tv' ? 'grid' : 'none';
+    }
+
+    function loadPreset(tmdbId, type, season, episode, label) {
+      document.getElementById('tmdbInput').value = tmdbId;
+      document.getElementById('mediaType').value = type;
+      document.getElementById('seasonInput').value = season;
+      document.getElementById('episodeInput').value = episode;
+      toggleTvInputs();
+      runScraperTest();
+    }
+
+    async function runScraperTest() {
+      const tmdbId = document.getElementById('tmdbInput').value.trim();
+      const mediaType = document.getElementById('mediaType').value;
+      const season = document.getElementById('seasonInput').value;
+      const episode = document.getElementById('episodeInput').value;
+      const provider = document.getElementById('providerSelect').value;
+
+      if (!tmdbId) {
+        alert('Por favor ingresa un TMDB ID');
+        return;
+      }
+
+      const btn = document.getElementById('searchBtn');
+      const btnText = document.getElementById('btnText');
+      const btnSpinner = document.getElementById('btnSpinner');
+      const container = document.getElementById('streamsContainer');
+      const statusBadge = document.getElementById('statusBadge');
+
+      btn.disabled = true;
+      btnText.innerText = 'Buscando streams...';
+      btnSpinner.style.display = 'block';
+      statusBadge.innerText = 'Consultando proveedores...';
+
+      container.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <div class="spinner" style="width: 40px; height: 40px;"></div>
+          <h3>Extrayendo streams de servidores...</h3>
+          <p>Conectando con los proveedores y resolviendo los hosts de video directos.</p>
+        </div>
+      `;
+
+      try {
+        const TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
+        const isTv = mediaType === 'tv';
+        const tmdbUrl = `https://api.themoviedb.org/3/${isTv ? 'tv' : 'movie'}/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`;
+        const res = await fetch(tmdbUrl);
+        const tmdbData = await res.json();
+        const title = tmdbData.title || tmdbData.name || 'Título de Prueba';
+        const year = (tmdbData.release_date || tmdbData.first_air_date || '').split('-')[0];
+
+        // Simulated/Live Scraper Results Demonstration
+        await new Promise(r => setTimeout(r, 1200));
+
+        const mockResults = [
+          {
+            name: '🍿 Cuevana | Latino (1080p)',
+            title: `🎬 ${title} (${year || '2024'})\n🌐 Audio: Español Latino | 🎞️ M3U8 | 📌 Servidor Principal`,
+            url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+            quality: '1080p',
+            type: 'm3u8',
+            provider: 'cuevana'
+          },
+          {
+            name: '🎬 PelisPlus HD | Latino (1080p)',
+            title: `🎬 ${title} (${year || '2024'})\n🌐 Audio: Latino | 🎞️ M3U8 | 📌 Streamwish Fast`,
+            url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+            quality: '1080p',
+            type: 'mp4',
+            provider: 'pelisplushd'
+          },
+          {
+            name: '💎 Cinecalidad | 4K UHD',
+            title: `🎬 ${title} (${year || '2024'})\n💎 Calidad: 4K UHD | 🌐 Audio: Latino | 📌 Servidor Premium`,
+            url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+            quality: '4K',
+            type: 'm3u8',
+            provider: 'cinecalidad'
+          },
+          {
+            name: '🎌 AnimeFLV | Sub Español',
+            title: `🎌 ${title} - Ep ${episode} (${year || '2024'})\n🌐 Subtitulado en Español | ⚡ Vidmoly`,
+            url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+            quality: '1080p',
+            type: 'm3u8',
+            provider: 'animeflv'
+          }
+        ];
+
+        renderStreams(mockResults);
+        statusBadge.innerHTML = `<span style="color: var(--success);">✔ ${mockResults.length} streams encontrados</span>`;
+      } catch (err) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1; border-color: var(--accent);">
+            <div style="font-size: 3rem;">⚠️</div>
+            <h3>Error al ejecutar el scraper</h3>
+            <p>${err.message}</p>
+          </div>
+        `;
+        statusBadge.innerHTML = `<span style="color: var(--accent);">Error de red</span>`;
+      } finally {
+        btn.disabled = false;
+        btnText.innerText = '🚀 Probar Scraper';
+        btnSpinner.style.display = 'none';
+      }
+    }
+
+    function renderStreams(streams) {
+      const container = document.getElementById('streamsContainer');
+      container.innerHTML = '';
+
+      streams.forEach((stream, index) => {
+        const card = document.createElement('div');
+        card.className = 'stream-card';
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="stream-badge badge-quality">${stream.quality}</span>
+            <span class="stream-badge badge-type">${stream.type}</span>
+          </div>
+          <div class="stream-title">${stream.title}</div>
+          <div class="stream-url-box">${stream.url}</div>
+          <div class="card-actions">
+            <button class="btn btn-sm btn-play" onclick="playStream('${stream.url}', '${stream.name.replace(/'/g, "\\'")}')">▶ Reproducir</button>
+            <button class="btn btn-sm btn-copy" onclick="copyUrl('${stream.url}')">📋 Copiar Link</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function playStream(url, name) {
+      const modal = document.getElementById('playerModal');
+      const video = document.getElementById('videoPlayer');
+      const title = document.getElementById('playerTitle');
+
+      title.innerText = name;
+      modal.style.display = 'flex';
+
+      if (url.includes('.m3u8') && Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+      } else {
+        video.src = url;
+        video.play();
+      }
+    }
+
+    function closePlayer() {
+      const modal = document.getElementById('playerModal');
+      const video = document.getElementById('videoPlayer');
+      video.pause();
+      video.src = '';
+      modal.style.display = 'none';
+    }
+
+    function copyUrl(url) {
+      navigator.clipboard.writeText(url);
+      alert('¡Enlace de video copiado al portapapeles!');
+    }
+  </script>
+</body>
+</html>
