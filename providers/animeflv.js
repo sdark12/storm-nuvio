@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AnimeFLV Scraper for Nuvio
  * Source: storm-ext AnimeflvProvider
  * Content: Anime Series, Movies y OVAs (Subtitulado y Audio Latino)
@@ -249,7 +249,7 @@ async function getStreams(tmdbId, mediaType = 'tv', season = 1, episode = 1) {
     // Iterate through SUB (Subtitulado) and LAT / DUB (Doblaje)
     for (const [langKey, serverList] of Object.entries(videoData)) {
       if (!Array.isArray(serverList)) continue;
-      const langLabel = langKey === 'LAT' ? 'Audio Latino' : (langKey === 'CAS' ? 'Castellano' : 'Sub Español');
+      const langLabel = langKey === 'LAT' ? 'Audio Latino' : (langKey === 'CAS' ? 'Castellano' : 'Sub EspaÃ±ol');
 
       for (const srv of serverList) {
         const code = srv.code || srv.url;
@@ -262,12 +262,11 @@ async function getStreams(tmdbId, mediaType = 'tv', season = 1, episode = 1) {
               if (stream && stream.url) {
                 streams.push({
                   name: `AnimeFLV | ${serverName} [${langLabel}]`,
-                  title: `🎌 ${title} - Episodio ${epNum} (${year || 'N/A'})\n🌐 ${langLabel} | ⚡ ${serverName} | 🎞️ ${stream.type.toUpperCase()}`,
+                  title: `ðŸŽŒ ${title} - Episodio ${epNum} (${year || 'N/A'})\nðŸŒ ${langLabel} | âš¡ ${serverName} | ðŸŽžï¸ ${stream.type.toUpperCase()}`,
                   url: stream.url,
                   quality: stream.quality || '1080p',
                   type: stream.type || 'm3u8',
-                  headers: stream.headers || { 'Referer': BASE_URL + '/' },
-                  provider: 'animeflv'
+                  behaviorHints: { notWebReady: true, proxyHeaders: { request: stream.headers || { 'Referer': BASE_URL + '/' } } }
                 });
               }
             } catch (err) {}
@@ -276,7 +275,7 @@ async function getStreams(tmdbId, mediaType = 'tv', season = 1, episode = 1) {
       }
     }
 
-    await Promise.allSettled(tasks);
+    await Promise.all((tasks || []).map(p => p.catch(() => {})));
   } catch (error) {
     console.error('[AnimeFLV Scraper Error]:', error);
   }
