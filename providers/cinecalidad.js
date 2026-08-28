@@ -1,8 +1,6 @@
-// Cinecalidad Scraper for Nuvio - storm-ext port
-// Peliculas en 4K y 1080p en Espanol Latino
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
-var BASE_URL = 'https://www.cinecalidad.foo';
+// Cinecalidad Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
+var BASE_URL = 'https://cinecalidad.wf';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
 
@@ -52,13 +50,13 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1) {
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1 || lower.indexOf('hlswish') > -1) {
       var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
       if (m) return { url: m[1], quality: '1080p', ref: url };
     }
@@ -66,9 +64,13 @@ async function resolveHostUrl(rawUrl, referer) {
       var m2 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
       if (m2) return { url: m2[1], quality: '1080p', ref: url };
     }
+    if (lower.indexOf('voe.sx') > -1 || lower.indexOf('weneverbeenfree') > -1) {
+      var m3 = unpacked.match(/'hls'\s*:\s*'([^']+)'/) || unpacked.match(/file\s*:\s*["']([^"']+\.m3u8[^"']*?)["']/i);
+      if (m3) return { url: m3[1], quality: '1080p', ref: url };
+    }
     if (lower.indexOf('vidmoly') > -1) {
-      var m3 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
-      if (m3) return { url: m3[1], quality: '1080p', ref: 'https://vidmoly.me/' };
+      var m4 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
+      if (m4) return { url: m4[1], quality: '1080p', ref: 'https://vidmoly.me/' };
     }
     var gm = unpacked.match(/https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*/i);
     if (gm) return { url: gm[0], quality: '1080p', ref: url };
@@ -91,12 +93,13 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!searchRes.ok) return [];
     var searchHtml = await searchRes.text();
 
+    var targetLink = null;
     var itemRegex = /<article[^>]*>([\s\S]*?)<\/article>/gi;
-    var match, targetLink = null;
+    var match;
     while ((match = itemRegex.exec(searchHtml)) !== null) {
       var linkMatch = match[1].match(/href=["']([^"']+)["']/i);
-      if (linkMatch) {
-        targetLink = linkMatch[1].indexOf('http') === 0 ? linkMatch[1] : BASE_URL + linkMatch[1];
+      if (linkMatch && linkMatch[1].indexOf('http') > -1 && linkMatch[1].indexOf('/series/') === -1) {
+        targetLink = linkMatch[1];
         break;
       }
     }
@@ -106,17 +109,14 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!pageRes.ok) return [];
     var pageHtml = await pageRes.text();
 
-    // Extract download/stream links
-    var linkRegex = /<a[^>]*href=["']([^"']*(?:cinecalidad|fembed|streamtape|filemoon|streamwish|vidmoly)[^"']*)["'][^>]*>/gi;
-    var lm, embedUrls = [];
-    while ((lm = linkRegex.exec(pageHtml)) !== null) {
-      embedUrls.push(lm[1]);
-    }
-    // Also try iframes
-    var ifrRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
-    var ifm;
-    while ((ifm = ifrRegex.exec(pageHtml)) !== null) {
-      embedUrls.push(ifm[1]);
+    var embedUrls = [];
+    var optRegex = /(?:iframe[^>]*src|data-src|option value)=["']([^"']+)["']/gi;
+    var om;
+    while ((om = optRegex.exec(pageHtml)) !== null) {
+      var link = om[1];
+      if (link.indexOf('http') === 0 && (link.indexOf('stream') > -1 || link.indexOf('voe') > -1 || link.indexOf('filemoon') > -1 || link.indexOf('vidmoly') > -1 || link.indexOf('goodstream') > -1)) {
+        embedUrls.push(link);
+      }
     }
 
     var tasks = [];
@@ -128,7 +128,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             if (stream && stream.url) {
               streams.push({
                 name: 'Cinecalidad (' + stream.quality + ')',
-                title: title + ' (' + (year || 'N/A') + ') - Latino HD',
+                title: title + ' (' + (year || 'N/A') + ') - Latino 4K/HD',
                 url: stream.url,
                 quality: stream.quality || '1080p',
                 behaviorHints: {
