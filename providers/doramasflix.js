@@ -1,7 +1,5 @@
-// DoramasFlix Scraper for Nuvio - storm-ext port
-// Doramas y series asiaticas en espanol
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
+// DoramasFlix Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
 var BASE_URL = 'https://doramasflix.in';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
@@ -52,13 +50,13 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1) {
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('swish') > -1) {
       var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
       if (m) return { url: m[1], quality: '1080p', ref: url };
     }
@@ -66,7 +64,7 @@ async function resolveHostUrl(rawUrl, referer) {
       var m2 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
       if (m2) return { url: m2[1], quality: '1080p', ref: 'https://vidmoly.me/' };
     }
-    if (lower.indexOf('filemoon') > -1 || lower.indexOf('moonplayer') > -1) {
+    if (lower.indexOf('filemoon') > -1) {
       var m3 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
       if (m3) return { url: m3[1], quality: '1080p', ref: url };
     }
@@ -88,45 +86,30 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     var epNum = episode ? parseInt(episode, 10) : 1;
     if (!title) return [];
 
-    // Search
     var searchUrl = BASE_URL + '/buscar?q=' + encodeURIComponent(title);
     var searchRes = await fetch(searchUrl, { headers: HEADERS });
     if (!searchRes.ok) return [];
     var searchHtml = await searchRes.text();
 
     var targetLink = null;
-    var linkRegex = /href=["']([^"']*\/dorama\/[^"']+)["']/gi;
+    var linkRegex = /href=["']([^"']*\/(?:dorama|serie)\/[^"']+)["']/gi;
     var lm;
     while ((lm = linkRegex.exec(searchHtml)) !== null) {
       targetLink = lm[1].indexOf('http') === 0 ? lm[1] : BASE_URL + lm[1];
       break;
     }
-    if (!targetLink) {
-      linkRegex = /href=["']([^"']*\/serie[^"']+)["']/gi;
-      while ((lm = linkRegex.exec(searchHtml)) !== null) {
-        targetLink = lm[1].indexOf('http') === 0 ? lm[1] : BASE_URL + lm[1];
-        break;
-      }
-    }
     if (!targetLink) return [];
 
-    // Episode page
     var epUrl = targetLink.replace(/\/$/, '') + '/temporada/' + (season || 1) + '/episodio/' + epNum;
     var epRes = await fetch(epUrl, { headers: HEADERS });
     if (!epRes.ok) return [];
     var epHtml = await epRes.text();
 
-    // Extract video sources
     var iframeSrcs = [];
-    var ifrRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    var ifrRegex = /(?:iframe[^>]*src|data-src)=["']([^"']+)["']/gi;
     var ifm;
     while ((ifm = ifrRegex.exec(epHtml)) !== null) {
-      iframeSrcs.push(ifm[1]);
-    }
-    var dsRegex = /data-src=["']([^"']+)["']/gi;
-    var dsm;
-    while ((dsm = dsRegex.exec(epHtml)) !== null) {
-      if (dsm[1].indexOf('http') > -1) iframeSrcs.push(dsm[1]);
+      if (ifm[1].indexOf('http') > -1) iframeSrcs.push(ifm[1]);
     }
 
     var tasks = [];
