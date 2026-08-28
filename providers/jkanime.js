@@ -1,7 +1,5 @@
-// JKAnime Scraper for Nuvio - storm-ext port
-// Anime en alta definicion subtitulado al espanol
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
+// JKAnime Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
 var BASE_URL = 'https://jkanime.net';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
@@ -52,13 +50,13 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1) {
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('swish') > -1) {
       var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
       if (m) return { url: m[1], quality: '1080p', ref: url };
     }
@@ -90,41 +88,19 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     var epNum = episode ? parseInt(episode, 10) : 1;
     if (!title) return [];
 
-    // Search on JKAnime
-    var searchUrl = BASE_URL + '/buscar/' + encodeURIComponent(originalTitle || title) + '/';
-    var searchRes = await fetch(searchUrl, { headers: HEADERS });
-    if (!searchRes.ok) return [];
-    var searchHtml = await searchRes.text();
-
-    var animeSlug = null;
-    var slugRegex = /href=["']https?:\/\/jkanime\.net\/([^"'\/]+)\/?["']/gi;
-    var sm;
-    while ((sm = slugRegex.exec(searchHtml)) !== null) {
-      if (sm[1] !== 'buscar' && sm[1] !== 'directorio' && sm[1] !== 'horario') {
-        animeSlug = sm[1];
-        break;
-      }
-    }
-    if (!animeSlug) return [];
-
-    // Get episode page
-    var epUrl = BASE_URL + '/' + animeSlug + '/' + epNum + '/';
+    var cleanTitle = (originalTitle || title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    var epUrl = BASE_URL + '/' + cleanTitle + '/' + epNum + '/';
     var epRes = await fetch(epUrl, { headers: HEADERS });
     if (!epRes.ok) return [];
     var epHtml = await epRes.text();
 
-    // Extract video servers
     var iframeSrcs = [];
-    var ifrRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    var ifrRegex = /(?:iframe[^>]*src|data-video|data-src)=["']([^"']+)["']/gi;
     var ifm;
     while ((ifm = ifrRegex.exec(epHtml)) !== null) {
-      if (ifm[1].indexOf('jkanime') === -1) iframeSrcs.push(ifm[1]);
-    }
-    // data-video
-    var dvRegex = /data-video=["']([^"']+)["']/gi;
-    var dvm;
-    while ((dvm = dvRegex.exec(epHtml)) !== null) {
-      iframeSrcs.push(dvm[1]);
+      if (ifm[1].indexOf('http') > -1 && ifm[1].indexOf('facebook') === -1 && ifm[1].indexOf('google') === -1) {
+        iframeSrcs.push(ifm[1]);
+      }
     }
 
     var tasks = [];
@@ -136,7 +112,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             if (stream && stream.url) {
               streams.push({
                 name: 'JKAnime (' + stream.quality + ')',
-                title: title + ' - Ep ' + epNum + ' (' + (year || 'N/A') + ') - Sub Espanol',
+                title: title + ' - Ep ' + epNum + ' (' + (year || 'N/A') + ') - Sub',
                 url: stream.url,
                 quality: stream.quality || '1080p',
                 behaviorHints: {
