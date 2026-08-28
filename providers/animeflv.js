@@ -1,8 +1,6 @@
-// AnimeFLV Scraper for Nuvio - storm-ext port
-// Anime en emision y finalizado con subtitulos y doblaje latino
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
-var BASE_URL = 'https://www3.animeflv.net';
+// AnimeFLV / TioAnime Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
+var BASE_URL = 'https://tioanime.com';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
 
@@ -52,37 +50,25 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    // Streamwish
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1 || lower.indexOf('wishembed') > -1) {
-      var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
-      if (m) return { url: m[1], quality: '1080p', ref: url };
-    }
-    // Vidmoly
-    if (lower.indexOf('vidmoly') > -1) {
-      var m2 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
-      if (m2) return { url: m2[1], quality: '1080p', ref: 'https://vidmoly.me/' };
-    }
-    // YourUpload
     if (lower.indexOf('yourupload') > -1) {
-      var m3 = html.match(/file\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i) || html.match(/property=["']og:video["']\s*content=["']([^"']+)["']/i);
-      if (m3) {
-        var sUrl = m3[1];
+      var m = html.match(/file\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i) || html.match(/property=["']og:video["']\s*content=["']([^"']+)["']/i);
+      if (m) {
+        var sUrl = m[1];
         if (sUrl.indexOf('/') === 0) sUrl = 'https://www.yourupload.com' + sUrl;
         return { url: sUrl, quality: '720p', ref: 'https://www.yourupload.com/' };
       }
     }
-    // Streamtape
-    if (lower.indexOf('streamtape') > -1 || lower.indexOf('stape') > -1) {
-      var m4 = unpacked.match(/robotlink['"]\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*([^;]+)/);
-      if (m4) {
-        var videoUrl = 'https:' + m4[1];
-        var parts = m4[2].split('+');
+    if (lower.indexOf('streamtape') > -1) {
+      var m2 = unpacked.match(/robotlink['"]\)\.innerHTML\s*=\s*['"]([^'"]+)['"]\s*\+\s*([^;]+)/);
+      if (m2) {
+        var videoUrl = 'https:' + m2[1];
+        var parts = m2[2].split('+');
         for (var pi = 0; pi < parts.length; pi++) {
           var sm = parts[pi].match(/['"]([^'"]+)['"]/);
           if (sm) {
@@ -95,12 +81,10 @@ async function resolveHostUrl(rawUrl, referer) {
         return { url: videoUrl, quality: '720p', ref: 'https://streamtape.com/' };
       }
     }
-    // Mp4Upload
-    if (lower.indexOf('mp4upload') > -1) {
-      var m5 = unpacked.match(/src:\s*["'](https?:\/\/[^"']+\.mp4[^"']*?)["']/i);
-      if (m5) return { url: m5[1], quality: '1080p', ref: 'https://www.mp4upload.com/' };
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('swish') > -1) {
+      var m3 = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
+      if (m3) return { url: m3[1], quality: '1080p', ref: url };
     }
-    // Generic
     var gm = unpacked.match(/https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*/i);
     if (gm) return { url: gm[0], quality: '1080p', ref: url };
   } catch (e) {}
@@ -121,91 +105,63 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     var epNum = episode ? parseInt(episode, 10) : 1;
     if (!title) return [];
 
-    // Search anime
     var searchQueries = [title.replace(/:/g, ' ')];
     if (originalTitle) searchQueries.push(originalTitle.replace(/:/g, ' '));
     var animeSlug = null;
 
     for (var qi = 0; qi < searchQueries.length; qi++) {
       try {
-        var sr = await fetch(BASE_URL + '/browse?q=' + encodeURIComponent(searchQueries[qi]), { headers: HEADERS });
+        var sr = await fetch(BASE_URL + '/directorio?q=' + encodeURIComponent(searchQueries[qi]), { headers: HEADERS });
         if (sr.ok) {
-          var searchHtml = await sr.text();
-          var listMatch = searchHtml.match(/<ul[^>]*class=["'][^"']*ListAnimes[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i);
-          if (listMatch) {
-            var articleRegex = /<article[^>]*class=["']Anime[^"']*["']>([\s\S]*?)<\/article>/gi;
-            var artMatch;
-            while ((artMatch = articleRegex.exec(listMatch[1])) !== null) {
-              var linkMatch = artMatch[1].match(/href=["']\/anime\/([^"']+)["']/i);
-              if (linkMatch) { animeSlug = linkMatch[1]; break; }
-            }
+          var sHtml = await sr.text();
+          var slugRegex = /href=["']\/anime\/([^"']+)["']/gi;
+          var sm;
+          while ((sm = slugRegex.exec(sHtml)) !== null) {
+            animeSlug = sm[1];
+            break;
           }
         }
         if (animeSlug) break;
       } catch (e) {}
     }
-
-    // Fallback search API
-    if (!animeSlug) {
-      try {
-        var qsRes = await fetch(BASE_URL + '/api/animes/search', {
-          method: 'POST',
-          headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'value=' + encodeURIComponent(searchQueries[0])
-        });
-        if (qsRes.ok) {
-          var qsData = await qsRes.json();
-          if (Array.isArray(qsData) && qsData.length > 0 && qsData[0].slug) animeSlug = qsData[0].slug;
-        }
-      } catch (e) {}
-    }
     if (!animeSlug) return [];
 
-    // Fetch episode
     var epPageUrl = BASE_URL + '/ver/' + animeSlug + '-' + epNum;
     var epRes = await fetch(epPageUrl, { headers: HEADERS });
     if (!epRes.ok) return [];
     var epHtml = await epRes.text();
 
-    // Extract video servers
-    var videosMatch = epHtml.match(/var\s+videos\s*=\s*(\{[\s\S]*?\});/);
+    var videosMatch = epHtml.match(/var\s+videos\s*=\s*(\[[\s\S]*?\]);/);
     if (!videosMatch) return [];
-    var videoData;
-    try { videoData = JSON.parse(videosMatch[1]); } catch (e) { return []; }
+
+    var videoArray;
+    try { videoArray = JSON.parse(videosMatch[1]); } catch (e) { return []; }
 
     var tasks = [];
-    var langKeys = Object.keys(videoData);
-    for (var li = 0; li < langKeys.length; li++) {
-      var langKey = langKeys[li];
-      var serverList = videoData[langKey];
-      if (!Array.isArray(serverList)) continue;
-      var langLabel = langKey === 'LAT' ? 'Audio Latino' : (langKey === 'CAS' ? 'Castellano' : 'Sub Espanol');
-
-      for (var si = 0; si < serverList.length; si++) {
-        var srv = serverList[si];
-        var code = srv.code || srv.url;
-        var serverName = srv.title || srv.server || 'Server';
-        if (code && code.indexOf('mega.nz') === -1) {
-          tasks.push((function(c, sn, ll) {
-            return (async function() {
-              try {
-                var stream = await resolveHostUrl(c, epPageUrl);
-                if (stream && stream.url) {
-                  streams.push({
-                    name: 'AnimeFLV | ' + sn + ' [' + ll + ']',
-                    title: title + ' - Ep ' + epNum + ' (' + (year || 'N/A') + ') - ' + ll,
-                    url: stream.url,
-                    quality: stream.quality || '1080p',
-                    behaviorHints: {
-                      notWebReady: true,
-                      proxyHeaders: { request: { 'Referer': stream.ref || BASE_URL + '/', 'User-Agent': UA } }
-                    }
-                  });
-                }
-              } catch (err) {}
-            })();
-          })(code, serverName, langLabel));
-        }
+    for (var vi = 0; vi < videoArray.length; vi++) {
+      var item = videoArray[vi];
+      var serverName = item[0];
+      var code = item[1];
+      if (code && code.indexOf('mega.nz') === -1) {
+        tasks.push((function(srvName, rawCode) {
+          return (async function() {
+            try {
+              var stream = await resolveHostUrl(rawCode, epPageUrl);
+              if (stream && stream.url) {
+                streams.push({
+                  name: 'AnimeFLV | ' + srvName + ' (Sub)',
+                  title: title + ' - Ep ' + epNum + ' (' + (year || 'N/A') + ')',
+                  url: stream.url,
+                  quality: stream.quality || '1080p',
+                  behaviorHints: {
+                    notWebReady: true,
+                    proxyHeaders: { request: { 'Referer': stream.ref || BASE_URL + '/', 'User-Agent': UA } }
+                  }
+                });
+              }
+            } catch (err) {}
+          })();
+        })(serverName, code));
       }
     }
     await Promise.all(tasks.map(function(p) { return p.catch(function() {}); }));
