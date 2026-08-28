@@ -1,8 +1,6 @@
-// PelisPlus HD Scraper for Nuvio - storm-ext port
-// Peliculas y series en audio latino
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
-var BASE_URL = 'https://www1.pelisplushd.nz';
+// PelisPlus HD Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
+var BASE_URL = 'https://pelisplushd.bz';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
 
@@ -52,13 +50,13 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1) {
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1 || lower.indexOf('hlswish') > -1) {
       var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
       if (m) return { url: m[1], quality: '1080p', ref: url };
     }
@@ -84,7 +82,8 @@ async function getStreams(tmdbId, mediaType, season, episode) {
   var streams = [];
   var isTv = mediaType === 'tv' || mediaType === 'series';
   try {
-    var tmdbUrl = 'https://api.themoviedb.org/3/' + (isTv ? 'tv' : 'movie') + '/' + tmdbId + '?api_key=' + TMDB_API_KEY + '&language=es-MX';
+    var tmdbType = isTv ? 'tv' : 'movie';
+    var tmdbUrl = 'https://api.themoviedb.org/3/' + tmdbType + '/' + tmdbId + '?api_key=' + TMDB_API_KEY + '&language=es-MX';
     var tmdbRes = await fetch(tmdbUrl);
     if (!tmdbRes.ok) return [];
     var tmdbData = await tmdbRes.json();
@@ -96,14 +95,12 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!searchRes.ok) return [];
     var searchHtml = await searchRes.text();
 
-    var itemRegex = /<article[^>]*>([\s\S]*?)<\/article>/gi;
-    var match, targetLink = null;
+    var targetLink = null;
+    var itemRegex = /href=["']([^"']*(?:pelicula|serie)\/[^"']*)["']/gi;
+    var match;
     while ((match = itemRegex.exec(searchHtml)) !== null) {
-      var block = match[1];
-      var linkMatch = block.match(/href=["']([^"']+)["']/i);
-      if (!linkMatch) continue;
-      var link = linkMatch[1];
-      var isLinkTv = link.indexOf('/serie/') > -1 || link.indexOf('/tv/') > -1;
+      var link = match[1];
+      var isLinkTv = link.indexOf('/serie/') > -1;
       if (isTv === isLinkTv) {
         targetLink = link.indexOf('http') === 0 ? link : BASE_URL + link;
         break;
@@ -120,22 +117,15 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!pageRes.ok) return [];
     var pageHtml = await pageRes.text();
 
-    // Extract embed iframes
-    var iframeSrcs = [];
-    var ifrRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    var embedTargets = [];
+    var ifrRegex = /(?:iframe[^>]*src|data-video|data-src|video-url)=["']([^"']+)["']/gi;
     var ifm;
     while ((ifm = ifrRegex.exec(pageHtml)) !== null) {
-      iframeSrcs.push(ifm[1]);
-    }
-    // data-src too
-    var dsRegex = /data-src=["']([^"']+)["']/gi;
-    var dsm;
-    while ((dsm = dsRegex.exec(pageHtml)) !== null) {
-      if (dsm[1].indexOf('http') > -1) iframeSrcs.push(dsm[1]);
+      if (ifm[1].indexOf('http') > -1) embedTargets.push(ifm[1]);
     }
 
     var tasks = [];
-    for (var ii = 0; ii < iframeSrcs.length; ii++) {
+    for (var ii = 0; ii < embedTargets.length; ii++) {
       tasks.push((function(src) {
         return (async function() {
           try {
@@ -155,7 +145,7 @@ async function getStreams(tmdbId, mediaType, season, episode) {
             }
           } catch (err) {}
         })();
-      })(iframeSrcs[ii]));
+      })(embedTargets[ii]));
     }
     await Promise.all(tasks.map(function(p) { return p.catch(function() {}); }));
   } catch (error) {
