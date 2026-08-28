@@ -1,7 +1,5 @@
-// Cuevana Scraper for Nuvio - storm-ext port
-// Peliculas y Series en Espanol Latino, Castellano y Subtitulado
-
-var TMDB_API_KEY = '45dbdd51da578493e2504959ea4e058a';
+// Cuevana Scraper for Nuvio
+var TMDB_API_KEY = 'd131017ccc6e5462a81c9304d21476de';
 var BASE_URL = 'https://wv3.cuevana3.eu';
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 var HEADERS = { 'User-Agent': UA, 'Referer': BASE_URL + '/', 'Accept': '*/*' };
@@ -52,33 +50,28 @@ async function resolveHostUrl(rawUrl, referer) {
   if (/\.(mp4|mkv)(\?.*)?$/.test(lower)) return { url: url, quality: '1080p', ref: referer };
 
   try {
-    var h = {}; for (var k in HEADERS) h[k] = HEADERS[k]; h['Referer'] = referer;
+    var h = { 'User-Agent': UA, 'Referer': referer, 'Accept': '*/*' };
     var res = await fetch(url, { headers: h });
     if (!res.ok) return null;
     var html = await res.text();
     var unpacked = unpackJS(html);
 
-    // Streamwish
-    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1) {
+    if (lower.indexOf('streamwish') > -1 || lower.indexOf('wishonly') > -1 || lower.indexOf('swish') > -1 || lower.indexOf('hlswish') > -1) {
       var m = unpacked.match(/file\s*:\s*["'](https?:\/\/[^"']+\.m3u8[^"']*?)["']/i);
       if (m) return { url: m[1], quality: '1080p', ref: url };
     }
-    // Vidmoly
     if (lower.indexOf('vidmoly') > -1) {
       var m2 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
       if (m2) return { url: m2[1], quality: '1080p', ref: 'https://vidmoly.me/' };
     }
-    // Filemoon
     if (lower.indexOf('filemoon') > -1 || lower.indexOf('moonplayer') > -1) {
       var m3 = unpacked.match(/file\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*?)["']/i);
       if (m3) return { url: m3[1], quality: '1080p', ref: url };
     }
-    // Voe
     if (lower.indexOf('voe.sx') > -1 || lower.indexOf('weneverbeenfree') > -1) {
       var m4 = unpacked.match(/'hls'\s*:\s*'([^']+)'/) || unpacked.match(/file\s*:\s*["']([^"']+\.m3u8[^"']*?)["']/i);
       if (m4) return { url: m4[1], quality: '1080p', ref: url };
     }
-    // Generic
     var gm = unpacked.match(/https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*/i);
     if (gm) return { url: gm[0], quality: '1080p', ref: url };
   } catch (e) {}
@@ -95,127 +88,74 @@ async function getStreams(tmdbId, mediaType, season, episode) {
     if (!tmdbRes.ok) return [];
     var tmdbData = await tmdbRes.json();
     var title = tmdbData.title || tmdbData.name || tmdbData.original_title || tmdbData.original_name;
-    var originalTitle = tmdbData.original_title || tmdbData.original_name || '';
     var year = (tmdbData.release_date || tmdbData.first_air_date || '').split('-')[0];
     if (!title) return [];
 
-    // Search
-    var queries = [title];
-    if (originalTitle && originalTitle.toLowerCase() !== title.toLowerCase()) queries.push(originalTitle);
-    var searchHtml = '';
-    for (var qi = 0; qi < queries.length; qi++) {
+    var searchRes = await fetch(BASE_URL + '/search?q=' + encodeURIComponent(title), { headers: HEADERS });
+    if (!searchRes.ok) return [];
+    var searchHtml = await searchRes.text();
+
+    var targetSlug = null;
+    var ndm = searchHtml.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+    if (ndm) {
       try {
-        var sr = await fetch(BASE_URL + '/search?q=' + encodeURIComponent(queries[qi]), { headers: HEADERS });
-        if (sr.ok) { searchHtml = await sr.text(); if (searchHtml.indexOf('TPostMv') > -1) break; }
+        var ndJson = JSON.parse(ndm[1]);
+        var movies = (ndJson.props && ndJson.props.pageProps && ndJson.props.pageProps.movies) || [];
+        for (var mi = 0; mi < movies.length; mi++) {
+          if (String(movies[mi].TMDbId) === String(tmdbId) || (movies[mi].titles && movies[mi].titles.name && movies[mi].titles.name.toLowerCase() === title.toLowerCase())) {
+            if (movies[mi].url && movies[mi].url.slug) {
+              targetSlug = movies[mi].url.slug;
+              break;
+            }
+          }
+        }
+        if (!targetSlug && movies.length > 0 && movies[0].url) {
+          targetSlug = movies[0].url.slug;
+        }
       } catch (e) {}
     }
-    if (!searchHtml) return [];
 
-    // Parse results
-    var itemRegex = /<li[^>]*class=["'][^"']*TPostMv[^"']*["'][^>]*>([\s\S]*?)<\/li>/gi;
-    var match, targetLink = null;
-    while ((match = itemRegex.exec(searchHtml)) !== null) {
-      var block = match[1];
-      var linkMatch = block.match(/href=["']([^"']+)["']/i);
-      if (!linkMatch) continue;
-      var link = linkMatch[1];
-      var isItemTv = link.indexOf('/serie/') > -1;
-      if (isTv === isItemTv) {
-        targetLink = link.indexOf('http') === 0 ? link : BASE_URL + link;
+    // Fallback search in HTML links
+    if (!targetSlug) {
+      var itemRegex = /href=["']([^"']*(?:pelicula|movies|serie)\/[^"']*)["']/gi;
+      var match;
+      while ((match = itemRegex.exec(searchHtml)) !== null) {
+        targetSlug = match[1];
         break;
       }
     }
-    if (!targetLink) return [];
+    if (!targetSlug) return [];
 
-    // Navigate to page
-    var contentPageUrl = targetLink;
-    if (isTv && season && episode) {
-      var baseSlug = targetLink.replace(BASE_URL, '').replace(/^\/+|\/+$/g, '');
-      contentPageUrl = BASE_URL + '/' + baseSlug + '/temporada/' + season + '/episodio/' + episode;
-    }
+    var contentPageUrl = targetSlug.indexOf('http') === 0 ? targetSlug : BASE_URL + '/' + targetSlug.replace(/^\/+/, '');
     var pageRes = await fetch(contentPageUrl, { headers: HEADERS });
-    if (!pageRes.ok && isTv) {
-      var seriesRes = await fetch(targetLink, { headers: HEADERS });
-      if (seriesRes.ok) {
-        var seriesHtml = await seriesRes.text();
-        var ndm = seriesHtml.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-        if (ndm) {
-          try {
-            var nextJson = JSON.parse(ndm[1]);
-            var seasons = (nextJson.props && nextJson.props.pageProps && nextJson.props.pageProps.thisSerie && nextJson.props.pageProps.thisSerie.seasons) || [];
-            for (var si = 0; si < seasons.length; si++) {
-              if (seasons[si].number === parseInt(season, 10)) {
-                var eps = seasons[si].episodes || [];
-                for (var ei = 0; ei < eps.length; ei++) {
-                  if (eps[ei].number === parseInt(episode, 10) && eps[ei].url && eps[ei].url.slug) {
-                    var epSlug = eps[ei].url.slug.replace('series/', 'serie/').replace('seasons/', 'temporada/').replace('episodes/', 'episodio/');
-                    contentPageUrl = epSlug.indexOf('http') === 0 ? epSlug : BASE_URL + '/' + epSlug;
-                    pageRes = await fetch(contentPageUrl, { headers: HEADERS });
-                    break;
-                  }
-                }
-                break;
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    }
     if (!pageRes.ok) return [];
     var pageHtml = await pageRes.text();
 
-    // Extract iframes
     var iframeMatches = [];
-    var serverBlockRegex = /<li[^>]*class=["'][^"']*open_submenu[^"']*["'][^>]*>([\s\S]*?)<\/ul>/gi;
-    var subMatch;
-    while ((subMatch = serverBlockRegex.exec(pageHtml)) !== null) {
-      var subBlock = subMatch[1];
-      var langMatch = subBlock.match(/<span>([^<]+)<\/span>/i) || subBlock.match(/(Latino|Castellano|Subtitulado)/i);
-      var lang = langMatch ? langMatch[1].trim() : 'Latino';
-      var cliliRegex = /<li[^>]*data-tr=["']([^"']+)["'][^>]*>/gi;
-      var cli;
-      while ((cli = cliliRegex.exec(subBlock)) !== null) {
-        iframeMatches.push({ iframeUrl: cli[1], lang: lang });
-      }
-    }
-    if (iframeMatches.length === 0) {
-      var gtr = /data-tr=["']([^"']+)["']/gi;
-      var gt;
-      while ((gt = gtr.exec(pageHtml)) !== null) {
-        iframeMatches.push({ iframeUrl: gt[1], lang: 'Latino' });
-      }
+    var ifrRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    var ifm;
+    while ((ifm = ifrRegex.exec(pageHtml)) !== null) {
+      if (ifm[1].indexOf('http') > -1) iframeMatches.push(ifm[1]);
     }
 
-    // Resolve streams
     var tasks = [];
     for (var ii = 0; ii < iframeMatches.length; ii++) {
-      tasks.push((function(iframe) {
+      tasks.push((function(ifUrl) {
         return (async function() {
           try {
-            var ifUrl = iframe.iframeUrl;
-            if (ifUrl.indexOf('//') === 0) ifUrl = 'https:' + ifUrl;
-            else if (ifUrl.indexOf('/') === 0) ifUrl = BASE_URL + ifUrl;
-            var ifRes = await fetch(ifUrl, { headers: HEADERS });
-            if (!ifRes.ok) return;
-            var ifHtml = await ifRes.text();
-            var urlMatch = ifHtml.match(/var\s+url\s*=\s*['"]([^'"]+)['"]/i) ||
-                           ifHtml.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i) ||
-                           ifHtml.match(/<iframe[^>]*src=["']([^"']+)["']/i);
-            if (urlMatch && urlMatch[1]) {
-              var stream = await resolveHostUrl(urlMatch[1], ifUrl);
-              if (stream && stream.url) {
-                var epTag = isTv && season && episode ? ' S' + season + 'E' + episode : '';
-                streams.push({
-                  name: 'Cuevana | ' + iframe.lang + ' (' + stream.quality + ')',
-                  title: title + epTag + ' (' + (year || 'N/A') + ') - ' + iframe.lang,
-                  url: stream.url,
-                  quality: stream.quality || '1080p',
-                  behaviorHints: {
-                    notWebReady: true,
-                    proxyHeaders: { request: { 'Referer': stream.ref || BASE_URL + '/', 'User-Agent': UA } }
-                  }
-                });
-              }
+            var stream = await resolveHostUrl(ifUrl, contentPageUrl);
+            if (stream && stream.url) {
+              var epTag = isTv && season && episode ? ' S' + season + 'E' + episode : '';
+              streams.push({
+                name: 'Cuevana (' + stream.quality + ')',
+                title: title + epTag + ' (' + (year || 'N/A') + ') - Latino HD',
+                url: stream.url,
+                quality: stream.quality || '1080p',
+                behaviorHints: {
+                  notWebReady: true,
+                  proxyHeaders: { request: { 'Referer': stream.ref || BASE_URL + '/', 'User-Agent': UA } }
+                }
+              });
             }
           } catch (err) {}
         })();
